@@ -22,10 +22,7 @@ void runReader(PipelineEntryType* reader)
     while(last < end)
     {
         const int* spot = reader->begin();
-        if(*spot != (last + 1)) {
-            std::cout << "error: " << spot << " != " << (last + 1) << std::endl;
-            throw std::runtime_error("");
-        }
+        CHECK(*spot == (last + 1));
         last = *spot;
         reader->end();
     }
@@ -36,7 +33,6 @@ void runWriter(PipelineType* writer, int count)
     for(int i = 1; i <= count; ++i)
     {
         int* spot = writer->beginPushWait();
-        //std::cout << "write: " << i << std::endl;
         *spot = i;
         writer->endPush();
     }
