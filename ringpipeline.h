@@ -23,13 +23,13 @@ public:
     T* beginPushWait()
     {
         while(full()) { continue; }; //wait until space is available
-        return &buffer[head & (buffer_size - 1)];
+        return &buffer[head & (buffer_size - 1)].object;
     }
 
     T* beginPush()
     {
         assert(!full());
-        return &buffer[head & (buffer_size - 1)];
+        return &buffer[head & (buffer_size - 1)].object;
     }
 
     void endPush()
@@ -41,12 +41,12 @@ public:
     T* beginPop()
     {
         assert(!empty());
-        return &buffer[tail & (buffer_size - 1)];
+        return &buffer[tail & (buffer_size - 1)].object;
     }
 
     void endPop()
     {
-        __sync_fetch_and_add(&tail, 1);
+        tail += 1;
     }
 
     bool empty() const
@@ -72,13 +72,13 @@ public:
     T* at(size_t spot)
     {
         assert(spot < size());
-        return &buffer[(tail + spot) & (buffer_size - 1)];
+        return &buffer[(tail + spot) & (buffer_size - 1)].object;
     }
 
     T* getBySequence(size_t sequence)
     {
         assert(sequence >= tail && sequence < head);
-        return &buffer[sequence & (buffer_size - 1)];
+        return &buffer[sequence & (buffer_size - 1)].object;
     }
 
     size_t getSequence() const
@@ -87,7 +87,15 @@ public:
     }
 
 private:
-    T buffer[buffer_size];
+
+    struct Holder
+    {
+        T object;
+    } __attribute__ ((aligned (64)));
+
+    BOOST_STATIC_ASSERT(sizeof(Holder) % 64 == 0);
+
+    Holder buffer[buffer_size];
     volatile size_t head;
     volatile size_t tail;
 };
@@ -118,7 +126,8 @@ public:
 
     void end()
     {
-        __sync_fetch_and_add(&sequence, 1);
+        __sync_synchronize();//sync any updates this thread may have done
+        sequence += 1;
         if(last) {
             //pipeline.beginPop();//no need to beginPop(), since we don't care about the value
             pipeline.endPop();
